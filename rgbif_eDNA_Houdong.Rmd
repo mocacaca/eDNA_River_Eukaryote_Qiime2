@@ -1,0 +1,60 @@
+---
+title: "Houdong river eDNA"
+author: "Daphne Hoh"
+date: "2023-03-28"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r map OTU species annotation from NCBI (MIDORI2) to GBIF Backbone}
+.packs <- c("rgbif","tidyverse","dplyr","stringi")
+sapply(.packs, require, character.only = T)
+
+df_NCBI <- read.table("/Users/daphne/Desktop/drive-download-20230410T045436Z-001/otu_constax_reorder.csv", 
+                      header = T, sep = ",")
+
+# cleaning NCBI taxa table output
+df_NCBI <- df_NCBI %>%
+  mutate(across(everything(), ~ifelse(.=="", NA, as.character(.)))) # replace blank cell to NA
+names(df_NCBI)[-1] <- paste0("NCBI_", names(df_NCBI)[-1])
+head(df_NCBI)
+
+# This function extract the last non-NA value from a vector
+last_non_na <- function(x) {
+  rev(na.omit(x))[1]
+}
+
+# extracting last value from column NCBI_Phylum to NCBI_Species
+df_NCBI$lowest_taxa_annotation <- apply(df_NCBI, 1, last_non_na)
+
+## based on `lowest_taxa_annotation` column, call GBIF API
+match1 <- name_backbone_checklist(name = df_NCBI$lowest_taxa_annotation) %>%
+  dplyr::select("kingdom", "phylum", "class", "order", "family", "genus", "species") %>%
+  as.data.frame()
+
+df <- cbind(df_NCBI, match1)
+
+# to check possible identical names in Genus that might mis-call API annotation
+# for e.g. Achlya genus is both Animalia (insect) and Chromista
+# name_backbone_checklist function can add 'kingdom' argument to prevent this mis-annotation
+# so recall API to get the kingdom column based on NCBI_Phylum
+df1 <- subset(df, is.na(genus) & !is.na(NCBI_Genus)) %>%
+  select(OTU_ID, NCBI_Phylum, lowest_taxa_annotation)
+match2 <- name_backbone_checklist(name = df1$NCBI_Phylum) %>%
+  dplyr::select("kingdom") %>%
+  as.data.frame()
+df2 <- cbind(df1, match2)
+
+# recall and combine to df
+df3 <- name_backbone_checklist(name = df2$lowest_taxa_annotation, kingdom = df2$kingdom) %>%
+  dplyr::select("kingdom", "phylum", "class", "order", "family", "genus") %>%
+  as.data.frame()
+df3$OTU_ID <- df2$OTU_ID
+new_col <- merge(df, df3, by = "OTU_ID") %>%
+  select(c(1:9,17:22,16))
+names(new_col) <- names(df)
+
+df_tax <- rbind(df[!df$OTU_ID %in% new_col$OTU_ID,], new_col)
+write.csv(df_tax, "/Users/daphne/Desktop/otu.gbif.csv")
+```
