@@ -1,0 +1,13 @@
+sample-id	forward-absolute-filepath	reverse-absolute-filepath
+Down1	$PWD/Downstream_1.R1.trim.fastq	$PWD/Downstream_1.R2.trim.fastq
+Down2	$PWD/Downstream_2.R1.trim.fastq	$PWD/Downstream_2.R2.trim.fastq
+Down3	$PWD/Downstream_3.R1.trim.fastq	$PWD/Downstream_3.R2.trim.fastq
+Up1	$PWD/Upstream_1.R1.trim.fastq	$PWD/Upstream_1.R2.trim.fastq
+Up2	$PWD/Upstream_2.R1.trim.fastq	$PWD/Upstream_2.R2.trim.fastq
+Up3	$PWD/Upstream_3.R1.trim.fastq	$PWD/Upstream_3.R2.trim.fastq
+Sea1	$PWD/Seawater_1.R1.trim.fastq	$PWD/Seawater_1.R2.trim.fastq
+Sea2	$PWD/Seawater_2.R1.trim.fastq	$PWD/Seawater_2.R2.trim.fastq
+Sea3	$PWD/Seawater_3.R1.trim.fastq	$PWD/Seawater_3.R2.trim.fastq
+Semi1	$PWD/Semiseawater_1.R1.trim.fastq	$PWD/Semiseawater_1.R2.trim.fastq
+Semi2	$PWD/Semiseawater_2.R1.trim.fastq	$PWD/Semiseawater_2.R2.trim.fastq
+Semi3	$PWD/Semiseawater_3.R1.trim.fastq	$PWD/Semiseawater_3.R2.trim.fastq
