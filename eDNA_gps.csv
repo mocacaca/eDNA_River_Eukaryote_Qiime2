@@ -1,0 +1,5 @@
+﻿SampleName,Type,Temperature,Dissolved Oxygen,pH,Salinity,Turbidity,Latitude,Longitude
+River,Down,29.1,7.97,7.485,2,18.35,24.83552159,121.7997206
+RiverMouth,Sea,26.2,8.12,8.148,35,2.45,24.84121366,121.8256942
+Estuary,Semi,30.1,7.76,7.919,14,12.17,24.83009814,121.8046911
+Waterfall,Up,24.8,8.34,7.166,0,2.79,24.84364752,121.7820612
