@@ -1,0 +1,60 @@
+---
+title: "eDNA_datapaper_pie"
+author: "PING"
+date: "2023-04-20"
+output: html_document
+---
+
+#load package
+```{r}
+library(phyloseq)
+library(ggplot2)
+library(ggpubr)
+rm(list = ls(all.names = TRUE)) 
+```
+
+#load data
+```{r}
+
+physeq <- readRDS(file=paste0(path,'qiime2_otu_q20.rds'))
+```
+#Figure 2: OTU Pie chart
+```{r}
+king_pal <- c("Plantae"='#99c1b9',"Chromista"='#d88c9a',"Animalia"='#f2d0a9',"Fungi"='#f1e3d3',"Protozoa"='#8cc084')
+physeq.melt <- physeq %>% subset_taxa(Kingdom != 'Unidentified') %>% psmelt()
+pie.df <- as.data.frame(physeq.melt %>% group_by(Kingdom,Class) %>% summarise(count=n_distinct(OTU))) %>% 
+  mutate(Class=ifelse(Class=='Unidentified',paste0(Kingdom,'_unidentified'),Class))
+
+class1 <- rep('#f2d0a9',18)
+names(class1) <- (pie.df %>% subset.data.frame(Kingdom=='Animalia'))$Class
+
+class2 <- rep('#99c1b9',9)
+names(class2)<- (pie.df %>% subset.data.frame(Kingdom=='Plantae'))$Class
+
+class3 <- rep('#d88c9a',12)
+names(class3)<- (pie.df %>% subset.data.frame(Kingdom=='Chromista'))$Class
+
+class4 <- rep('#f1e3d3',9)
+names(class4)<- (pie.df %>% subset.data.frame(Kingdom=='Fungi'))$Class
+
+class5 <- rep('#8cc084',5)
+names(class5)<- (pie.df %>% subset.data.frame(Kingdom=='Protozoa'))$Class
+
+king_pal2 <- c(king_pal,class1,class2,class3,class4,class5,'Animalia_others'='#f2d0a9','Chromista_others'='#d88c9a','Fungi_others'='#f1e3d3','Plantae_others'='#99c1b9','Protozoa_others'='#8cc084')
+
+pie.df3 <- read.csv(paste0(outpath,'/otu_pie2.csv'))
+pie.df3$Taxa <- fct_relevel(pie.df3$Taxa,pie.df3$Taxa)
+
+pie_otu <- ggplot(pie.df3,aes(x=fct_relevel(Level,'Kingdom','Class'),y=count,fill=Taxa))+
+  geom_bar(stat="identity", width=1, size = 1, color = "white") +
+  coord_polar("y",start = 0)+
+  scale_fill_manual(values = king_pal2)+
+  theme_void()+
+  geom_text(aes(label=paste0(Taxa,'\n',count)),color='white',position = position_stack(vjust = 0.5), show.legend = F,size=3,fontface='bold')+
+  scale_x_discrete(c(" ","Kingdom",'Class')) +
+  theme(legend.position = 'none')
+
+pdf(file = paste0(outpath,'/fig3_tu_pie.pdf'),width = 8,height = 6)
+pie_otu
+dev.off()
+```
