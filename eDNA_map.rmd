@@ -1,0 +1,118 @@
+---
+title: "eDNA_map"
+author: "PING"
+date: "2023-02-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggspatial)
+library(sf)
+library(ggsci)
+library(ggpubr)
+library(ggrepel)
+library(ggplot2)
+library(metR)
+library(extrafont)
+library(remotes)
+library(gghighlight)
+library(grid)
+loadfonts()
+```
+
+#load gps data
+```{r}
+coord.tree<-read_csv(paste0('eDNA_gps.csv'),col_names = T)
+coord.tree <- coord.tree[is.na(coord.tree$Latitude)==F,]
+coord.tree <- coord.tree[is.na(coord.tree$Longitude)==F,]
+geo.tree <- st_as_sf(coord.tree, coords = c("Longitude", "Latitude")) %>% st_set_crs(st_crs(4326))
+```
+#palettes
+```{r}
+type_pal=c('Down'='#3b3a0b','Sea'="#084c61",'Semi'='#bd632f','Up'='#5d576b')
+```
+
+# shapefile for Taiwan
+```{r}
+#city boundary
+tw_shp <- read_sf('gadm36_TWN/gadm36_TWN_2.shp') #data from: https://biogeo.ucdavis.edu/data/gadm3.6/shp/gadm36_TWN_shp.zip
+tw_map <- fortify(tw_shp)
+tw_map_ts <- tw_map %>% st_set_crs(st_crs(4326))
+
+#river shape
+river_shp <- read_sf(paste0(wgspath,'riverpoly/riverpoly.shp')) #data from https://gic.wra.gov.tw/gis/gic/API/Google/DownLoad.aspx?fname=RIVERPOLY&filetype=SHP
+river_map <- fortify(river_shp)
+river_map_ts <- st_transform(river_map,crs = 4326)
+
+#basin shape
+basin_shp <- read_sf(paste0(wgspath,'basin/basin.shp')) #data from https://gic.wra.gov.tw/gis/gic/API/Google/DownLoad.aspx?fname=BASIN&filetype=SHP
+basin_map <- fortify(basin_shp)
+basin_map_ts <- st_transform(basin_map,crs = 4326)
+```
+
+#elevation data
+```{r}
+df <- read.delim2(paste0(wgspath,'dem_20m_WGS84_all_2digits.tsv'), sep = ' ')
+names(df) <- c('longitude','latitude','height')
+df$longitude <- as.numeric(paste(df$longitude))
+df$latitude <- as.numeric(paste(df$latitude))
+df$height <- as.numeric(paste(df$height))
+df2 <- df
+is.num <- sapply(df2, is.numeric)
+df2[is.num] <- lapply(df2[is.num]*1000, ceiling)
+df2[is.num] <- df2[is.num]/1000
+```
+
+#map of eDNA
+```{r}
+p_withriver <- ggplot()+
+  geom_sf(data=tw_map_ts,fill="white",color="#546747",linewidth=1.5)+
+  geom_sf(data=river_map_ts,fill="#ffffff00",color='#a9d6e5')+
+  geom_sf(data=basin_map_ts,fill="#ffffff00",color='#a9d6e5')+
+  xlab("Logitude") + ylab("Latitude") +
+  geom_contour(data=df2, aes(x = longitude, y = latitude, z=height, color="#a0a0a0")) +
+  geom_text_contour(data=df2, aes(x = longitude, y = latitude, z = height, color="#a0a0a0"),
+                    check_overlap=T, skip = 0, stroke = 0.2) +
+  geom_sf(data = geo.tree, size = 3, mapping = aes(color=Type), alpha=0.8,
+          position = "identity")+
+  geom_label_repel(data = coord.tree, aes(x = Longitude, y = Latitude, label= SampleName, color=Type)
+                   , min.segment.length = 0, box.padding = 1, force_pull = 10, show.legend = F, direction = 'both')+
+  scale_color_manual(values = type_pal)+
+  scale_fill_manual(values = type_pal)+
+  theme_pubr()+
+  theme(axis.text = element_text(size = 12),
+        legend.position = "none", title = element_text(face = "bold"),
+        axis.ticks = element_blank())+
+  annotation_custom(grobTree(textGrob('9 km',x=0.23,y=0.965), gp=gpar(fontface='bold')))+
+  coord_sf(xlim = c(120.68, 122.02), ylim = c(24.6, 25.31), expand = FALSE)+
+  annotation_scale(location = "tl", width_hint = 0.2, text_cex = 0, text_face = 'bold', pad_y = unit(0.5,"cm"), plot_unit="in")+
+  labs(title = 'Taiwan')
+
+p_withriver_yilan <-  ggplot()+
+   geom_sf(data=tw_map_ts,fill="white",color="#546747")+
+   geom_sf(data=river_map_ts,fill="#ffffff00",color='#a9d6e5')+
+   geom_sf(data=basin_map_ts,fill="#ffffff00",color='#a9d6e5')+
+   xlab("Logitude") + ylab("Latitude") + 
+   geom_contour2(data=df2, aes(x = longitude, y = latitude, z=height, color="#a0a0a0"), breaks = seq(100,500,by=100)) +
+   geom_text_contour(data=df2, aes(x = longitude, y = latitude, z = height, color="#a0a0a0"),check_overlap=F, skip = 0, stroke = 0.2, breaks = seq(100,500,by=100), min.size = 2) +
+   geom_sf(data = geo.tree, size = 3, mapping = aes(color=Type), alpha=0.8, position = "identity")+
+   geom_label_repel(data = coord.tree, aes(x = Longitude, y = Latitude, label= SampleName, color=Type), min.segment.length = 0, box.padding = 1, force_pull = 10, show.legend = F, direction = 'both',nudge_x = 3)+
+   scale_color_manual(values = type_pal)+
+   scale_fill_manual(values = type_pal)+
+   theme_pubr()+
+   theme(axis.text = element_text(size = 12),legend.position = "none", title = element_text(face = "bold"),
+         axis.ticks = element_blank())+
+  annotation_custom(grobTree(textGrob('1 km',x=0.76,y=0.037),gp=gpar(fontface='bold')))+
+   annotation_scale(location = "br", width_hint = 0.2, text_cex = 0, text_face = 'bold', pad_y = unit(0.5,"cm"), plot_unit="km")+
+   coord_sf(xlim = c(121.70, 121.90), ylim = c(24.78, 24.90), expand = FALSE)+
+   labs(title = 'Yilan County, Taiwan')
+
+pdf(paste0(mappath,'1119_Taiwan_repel_river_basin_north2_boldline.pdf'), width=11, height=8, paper = 'a4r')
+print(p_withriver_north2) 
+dev.off()
+
+pdf(paste0(mappath,'1116_Taiwan_repel_river_basin_yilan_bin10_02.pdf'), width=11, height=8, paper = 'a4r')
+print(p_withriver_yilan) 
+dev.off()
+```
