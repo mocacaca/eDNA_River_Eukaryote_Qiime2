@@ -23,7 +23,7 @@ loadfonts()
 
 #load gps data
 ```{r}
-coord.tree<-read_csv(paste0('eDNA_gps.csv'),col_names = T)
+coord.tree<-read_csv('eDNA_gps.csv',col_names = T)
 coord.tree <- coord.tree[is.na(coord.tree$Latitude)==F,]
 coord.tree <- coord.tree[is.na(coord.tree$Longitude)==F,]
 geo.tree <- st_as_sf(coord.tree, coords = c("Longitude", "Latitude")) %>% st_set_crs(st_crs(4326))
@@ -41,19 +41,19 @@ tw_map <- fortify(tw_shp)
 tw_map_ts <- tw_map %>% st_set_crs(st_crs(4326))
 
 #river shape
-river_shp <- read_sf(paste0(wgspath,'riverpoly/riverpoly.shp')) #data from https://gic.wra.gov.tw/gis/gic/API/Google/DownLoad.aspx?fname=RIVERPOLY&filetype=SHP
+river_shp <- read_sf(paste0(wgspath,'riverpoly/riverpoly.shp')) #data from: https://gic.wra.gov.tw/gis/gic/API/Google/DownLoad.aspx?fname=RIVERPOLY&filetype=SHP
 river_map <- fortify(river_shp)
 river_map_ts <- st_transform(river_map,crs = 4326)
 
 #basin shape
-basin_shp <- read_sf(paste0(wgspath,'basin/basin.shp')) #data from https://gic.wra.gov.tw/gis/gic/API/Google/DownLoad.aspx?fname=BASIN&filetype=SHP
+basin_shp <- read_sf(paste0(wgspath,'basin/basin.shp')) #data from: https://gic.wra.gov.tw/gis/gic/API/Google/DownLoad.aspx?fname=BASIN&filetype=SHP
 basin_map <- fortify(basin_shp)
 basin_map_ts <- st_transform(basin_map,crs = 4326)
 ```
 
 #elevation data
 ```{r}
-df <- read.delim2(paste0(wgspath,'dem_20m_WGS84_all_2digits.tsv'), sep = ' ')
+df <- read.delim2('dem_20m_WGS84_all_2digits.tsv', sep = ' ') #data from: https://data.gov.tw/dataset/160361
 names(df) <- c('longitude','latitude','height')
 df$longitude <- as.numeric(paste(df$longitude))
 df$latitude <- as.numeric(paste(df$latitude))
@@ -66,6 +66,7 @@ df2[is.num] <- df2[is.num]/1000
 
 #map of eDNA
 ```{r}
+#taiwan map
 p_withriver <- ggplot()+
   geom_sf(data=tw_map_ts,fill="white",color="#546747",linewidth=1.5)+
   geom_sf(data=river_map_ts,fill="#ffffff00",color='#a9d6e5')+
@@ -89,6 +90,7 @@ p_withriver <- ggplot()+
   annotation_scale(location = "tl", width_hint = 0.2, text_cex = 0, text_face = 'bold', pad_y = unit(0.5,"cm"), plot_unit="in")+
   labs(title = 'Taiwan')
 
+#yilan map
 p_withriver_yilan <-  ggplot()+
    geom_sf(data=tw_map_ts,fill="white",color="#546747")+
    geom_sf(data=river_map_ts,fill="#ffffff00",color='#a9d6e5')+
