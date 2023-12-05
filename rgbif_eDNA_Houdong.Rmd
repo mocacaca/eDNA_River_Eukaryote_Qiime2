@@ -30,7 +30,7 @@ df_NCBI$lowest_taxa_annotation <- apply(df_NCBI, 1, last_non_na)
 
 ## based on `lowest_taxa_annotation` column, call GBIF API
 match1 <- name_backbone_checklist(name = df_NCBI$lowest_taxa_annotation) %>%
-  dplyr::select("kingdom", "phylum", "class", "order", "family", "genus", "species") %>%
+  dplyr::select("kingdom", "phylum", "class", "order", "family", "genus", "species", "scientificName") %>%
   as.data.frame()
 
 df <- cbind(df_NCBI, match1)
@@ -48,13 +48,158 @@ df2 <- cbind(df1, match2)
 
 # recall and combine to df
 df3 <- name_backbone_checklist(name = df2$lowest_taxa_annotation, kingdom = df2$kingdom) %>%
-  dplyr::select("kingdom", "phylum", "class", "order", "family", "genus") %>%
+  dplyr::select("kingdom", "phylum", "class", "order", "family", "genus", "scientificName") %>%
   as.data.frame()
 df3$OTU_ID <- df2$OTU_ID
-new_col <- merge(df, df3, by = "OTU_ID") %>%
-  select(c(1:9,17:22,16))
+new_col <- merge(df, df3, by = "OTU_ID") %>% # find out modified rows
+  select(c(1:9,18:23,16,24)) # choose updated columns
 names(new_col) <- names(df)
 
+# replacing the updated taxa of 24 rows
 df_tax <- rbind(df[!df$OTU_ID %in% new_col$OTU_ID,], new_col)
-write.csv(df_tax, "/Users/daphne/Desktop/otu.gbif.csv")
+
+## making `taxonRank` column
+# This function determine the last taxon rank detected in each OTU
+add_last_taxonRank <- function(df) {
+  taxonRank <- character(nrow(df))
+  for (i in 1:nrow(df)) {
+    if (all(is.na(df[i,]))) {
+      taxonRank[i] <- NA
+    } else {
+      last_non_na_col <- rev(names(df))[which.max(!is.na(rev(df[i,])))]
+      taxonRank[i] <- last_non_na_col
+    }
+  }
+  return(cbind(df, taxonRank))
+}
+
+ranking <- add_last_taxonRank(df_tax[,10:16])
+
+df_tax <- cbind(df_tax, ranking$taxonRank) # add back into original df
+names(df_tax)
+colnames(df_tax)[18] <- "taxonRank"
+
+
+## making `verbatimIdentification` column, containing NCBI annotation
+df_tax$verbatimIdentification <- paste0("NCBI_annotation|do:", df_tax$NCBI_SuperKingdom, "|",
+                                             "p:", df_tax$NCBI_Phylum, "|",
+                                             "c:", df_tax$NCBI_Class, "|",
+                                             "o:", df_tax$NCBI_Order, "|",
+                                             "f:", df_tax$NCBI_Family, "|",
+                                             "g:", df_tax$NCBI_Genus, "|",
+                                             "s:", df_tax$NCBI_Species)
+head(df_tax)
+
+
+
+# replace NA to blank in whole df
+df_tax[] <- lapply(df_tax, function(x) ifelse(is.na(x), "", x))
+
+# output
+write.table(df_tax, "/Users/daphne/Desktop/otu.gbif.tsv", sep = "\t", quote = F)
+```
+
+```{r (2) occurrence}
+## making `occurrenceID` column
+df_tax <- df_tax %>% 
+  slice(rep(1:n(), 12)) # repeating each OTU row for 12 times because total samples is 12
+
+target <- str_sort(df_tax$OTU_ID, numeric = T) # sort by OTU number: OTU1 to OTU2736
+df_tax_sort <- df_tax[match(target, df_tax$OTU_ID),] # order df based on ascending OTU 
+head(df_tax_sort, 50)
+
+# Make OTU_ID into `occurrenceID` (OTU1 to WF1:OTU1)
+event <- c("WF1","WF2","WF3","FR1","FR2","FR3","ES1","ES2","ES3","RM1","RM2","RM3")
+df_tax_sort$occurrenceID <- paste(event, df_tax_sort$OTU_ID, sep = ":")
+duplicated(df_tax_sort$occurrenceID) %>% table() # double check if all are unique
+head(df_tax_sort)
+names(df_tax_sort)
+
+## removing unwanted columns & edit column name
+df_tax_sort1 <- df_tax_sort[, c(1,20,10:19)]
+
+
+
+## making `organismQuantity` column
+q <- read.csv("/Users/daphne/Desktop/drive-download-20230410T045436Z-001/otutab_qiime2_q20_filtered_rename.csv") 
+
+qc <- q %>% gather(key = site, value = organismQuantity, -OTU_ID)
+qc$occurrenceID <- paste0(qc$site, ":", qc$OTU_ID)
+target <- df_tax_sort1$occurrenceID
+qcs <- qc[match(target, qc$occurrenceID),] # sort according to target
+
+
+## combining columns made from above
+occ_df <- cbind(df_tax_sort1[ , c(2:8,10:12)], qcs[ , 3])
+colnames(occ_df)[11] <- "organismQuantity"
+
+
+## making other repeating columns
+# single value repeats throughout whole df 
+higherClassification <- "Eukaryota"
+basisOfRecord <- "MaterialSample"
+occurrenceStatus <- "PRESENT"
+preparations <- "eDNA extraction"
+organismQuantityType <- "DNA sequence reads"
+sampleSizeUnit <- "DNA sequence reads"
+dateIdentified <- "2023-12-05"
+identificationRemarks <- "verbatimIdentification indicates species identification made via de novo clustering, 97% ANI against reference database MIDORI2 ; dateIdentified indicates date for secondary species mapping of the NCBI/MIDORI2 output to the GBIF Backbone Taxonomy"
+identificationReferences <- "https://doi.org/10.1002/edn3.303"
+datasetName	<- "eDNA along Houdong riverine zonation in Taiwan"
+samplingProtocol <- "1L water sample filtered through 75um pore size sieve and then 0.22um membrane"
+year <- "2022"
+month	<- "4"
+day	<- "28"
+continent	<- "Asia"
+country	<- "Taiwan"
+countryCode	<- "TW"
+county <- "Yilan"
+coordinateUncertaintyInMeters	<- "30"
+geodeticDatum	<- "WGS84"
+type <- "Event"
+license	<- "https://creativecommons.org/licenses/by/4.0/legalcode"
+rightsHolder <- "Academia Sinica"
+
+a <- data.frame(cbind(basisOfRecord,occurrenceStatus,preparations,organismQuantityType,sampleSizeUnit,
+                      dateIdentified,identificationRemarks,identificationReferences,datasetName,samplingProtocol,
+                      year,month,day,continent,country,
+                      countryCode,county,coordinateUncertaintyInMeters,geodeticDatum,type,
+                      license,rightsHolder))
+b <- a[rep(1, 32832),]
+
+
+# single vector repeat for 12 times
+eventTime <- rep(c("14:34","15:00","16:13","15:27"), each = 3) 
+eventDate <- rep(c("2022-04-28T14:34:00","2022-04-28T15:00:00","2022-04-28T16:13:00","2022-04-28T15:27:00"), each = 3)
+verbatimLocality <- rep(c("Houdong upstream waterfall | 猴洞坑瀑布", "Houdong downstream river | 猴洞溪", 
+                          "Houdong river estuary | 下埔排水線", "Houdong river mouth | 竹安出海口"), each = 3)
+decimalLatitude <- rep(c(24.844426, 24.835469, 24.830522, 24.841736), each = 3)
+decimalLongitude <- rep(c(121.782248, 121.799973, 121.804607, 121.825681), each = 3)	
+locationID <- rep(c("WF","FR","ES","RM"), each = 3)
+habitat <- rep(c("waterfall [ENVO:00000040]", "freshwater river [ENVO:01000297]", 
+                  "estuary [ENVO:00000045]", "river mouth [ENVO:00000386]"), each = 3)
+eventID <- rep(c("AS:TIGPeDNAproj:WF", "AS:TIGPeDNAproj:FR", "AS:TIGPeDNAproj:ES", "AS:TIGPeDNAproj:RM"), each = 3)
+
+sampleSizeValue <- c(461010,411397,439244,426427,317078,323520,389008,455818,424854,225422,314341,334274) # sorted from WF1 to RM3
+
+# materialSampleID
+link <- "https://www.ebi.ac.uk/ena/browser/view/ERS148920"
+num <- 57:68
+materialSampleID <- paste0(link, num)
+
+c <- data.frame(cbind(eventTime, eventDate, verbatimLocality, decimalLatitude, decimalLongitude,
+                      locationID, habitat, eventID, sampleSizeValue, materialSampleID))
+d <- c %>% 
+  slice(rep(1:n(), 2736))
+
+
+## combine both
+occ <- cbind(d, occ_df, b)
+
+
+## to exclude those with 0 count (26535 rows are 0)
+occurrenceExt <- occ[!occ$organismQuantity==0,] 
+
+## write csv
+write.table(occurrenceExt, "/Users/daphne/Desktop/forGBIF/ver4/occurrence.tsv", sep = "\t", quote = F)
 ```
